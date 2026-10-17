@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de ejes</title>
+<meta name="description" content="Diseño de ejes: diagramas de momento y torque, puntos críticos con análisis estático (Philpot) y a fatiga (Shigley), diámetro mínimo y memoria de cálculo.">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<header class="barra">
+  <div>
+    <h1>Calculadora de ejes</h1>
+    <div class="sub" id="nombre-caso"></div>
+  </div>
+  <div class="acciones">
+    <button class="btn" data-accion="ejemplo">Ejemplo reductor</button>
+    <button class="btn" data-accion="abrir">Abrir…</button>
+    <button class="btn" data-accion="guardar">Guardar</button>
+    <button class="btn primario" data-accion="imprimir">Memoria de cálculo (PDF)</button>
+    <input type="file" id="archivo" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<div class="resumen" id="resumen"></div>
+
+<nav class="pestanas" role="tablist">
+  <button data-pestana="material" class="activa">1 · Material y criterios</button>
+  <button data-pestana="geometria">2 · Geometría</button>
+  <button data-pestana="cargas">3 · Cargas</button>
+  <button data-pestana="diagramas">4 · Diagramas</button>
+  <button data-pestana="puntos">5 · Puntos críticos</button>
+  <button data-pestana="memoria">Memoria de cálculo</button>
+  <button data-pestana="catalogo">Catálogo y fuentes</button>
+</nav>
+
+<main>
+  <div id="avisos"></div>
+  <section class="pestana activa" id="p-material"></section>
+  <section class="pestana" id="p-geometria"></section>
+  <section class="pestana" id="p-cargas"></section>
+  <section class="pestana" id="p-diagramas"></section>
+  <section class="pestana" id="p-puntos"></section>
+  <section class="pestana" id="p-memoria"></section>
+  <section class="pestana" id="p-catalogo"></section>
+</main>
+
+<script src="js/datos.js"></script>
+<script src="js/nucleo.js"></script>
+<script src="js/analisis.js"></script>
+<script src="js/ejemplos.js"></script>
+<script src="js/graficos.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

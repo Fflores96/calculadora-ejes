@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pruebas, calculadora de ejes</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 24px; background: #fff; color: #1d1d1f; }
+  .ok { color: #1a7f37; } .mal { color: #c62828; font-weight: 600; }
+  #resumen { font-size: 18px; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Pruebas del núcleo de ejes</h1>
+<p>Mismos casos que <code>nucleo/pruebas.py</code> (Shigley 9.ª ed. y Philpot 4.ª ed.) más el análisis de viga.</p>
+<p id="resumen">Ejecutando…</p>
+<ul id="lista"></ul>
+<script src="js/datos.js"></script>
+<script src="js/nucleo.js"></script>
+<script src="js/analisis.js"></script>
+<script src="js/ejemplos.js"></script>
+<script>
+(function () {
+  var N = EJES.nucleo, ok = 0, mal = 0, lista = document.getElementById('lista');
+  var IN = 25.4, LBF = 4.448222, KPSI = 6.894757, HP = 745.6999;
+  function chk(nombre, obt, esp, tol) {
+    tol = tol === undefined ? 0.01 : tol;
+    var c = Math.abs(obt - esp) <= tol * Math.abs(esp) || (esp === 0 && Math.abs(obt) < 1e-9);
+    var li = document.createElement('li'); li.className = c ? 'ok' : 'mal';
+    li.textContent = (c ? '✓ ' : '✗ ') + nombre + ' — ' + Number(obt).toPrecision(5) + ' (esperado ' + esp + ')';
+    lista.appendChild(li); if (c) ok++; else mal++;
+  }
+  try {
+    chk('Shigley 6-3: ka maquinado, Sut 520 MPa', N.factorKa(520, 'maquinado'), 0.860, 0.002);
+    chk('Shigley 6-4: kb rotativo d = 32 mm', N.factorKb(32, true).kb, 0.858, 0.002);
+    chk('Shigley 6-4: kb no rotativo', N.factorKb(32, false).kb, 0.954, 0.002);
+    chk('Shigley 6-6: √a Neuber [√mm]', N.raizANeuber(690), 0.313, 0.01);
+    chk('Shigley 6-6: Kf', N.factorKf(1.65, N.sensibilidadMuesca(3, 690)), 1.55, 0.005);
+    var d = 1.1 * IN, Sut = 105 * KPSI, Sy = 82 * KPSI, Ma = 1260 * LBF * IN, Tm = 1100 * LBF * IN;
+    var m = N.limiteFatiga(Sut, d, { acabado: 'maquinado', confiabilidad: 99 });
+    chk('Shigley 7-1: ka', m.ka, 0.787, 0.005); chk('Shigley 7-1: kb', m.kb, 0.870, 0.005);
+    chk('Shigley 7-1: Se [kpsi]', m.Se / KPSI, 29.3, 0.01);
+    var Se = 29.3 * KPSI;
+    [['goodman', 1.63], ['gerber', 1.87], ['asme', 1.88], ['soderberg', 1.56]].forEach(function (c) {
+      chk('Shigley 7-1: n ' + c[0], N.nFatiga(d, Se, Sut, Sy, 1.58, 1.37, Ma, 0, 0, Tm, c[0]), c[1], 0.006);
+    });
+    chk('Shigley 7-1: n_y', N.nFluencia(d, Sy, 1.58, 1.37, Ma, 0, 0, Tm).nY, 4.50, 0.005);
+    var r = N.diametroFatiga(1.63, Sut, Sy, 1.58, 1.37, Ma, 0, 0, Tm, 'goodman', { acabado: 'maquinado', confiabilidad: 99 });
+    chk('Diámetro fatiga Goodman ≈ d del ej. 7-1', r.d, d, 0.01);
+    var T = N.torqueDesdePotencia(7 * HP, 3200);
+    chk('Philpot 6.6: T [lb·ft]', T / (LBF * IN * 12), 11.489, 0.001);
+    chk('Philpot 6.6: τ [psi]', N.torsion(T, 1000, 0.75 * IN).tau / KPSI * 1000, 1664, 0.002);
+    var e = N.estadoSuperficie(30, 0, 200000), ns = N.seguridadEstatica(e, 300);
+    chk('Torsión pura: n_Tresca / n_vonMises = √3/2', ns.tresca / ns.vonMises, Math.sqrt(3) / 2, 1e-9);
+    [['von_mises', 'vonMises'], ['tresca', 'tresca']].forEach(function (c) {
+      var dd = N.diametroEstatico(150000, 200000, 400, 2.5, 1, 1, c[0]);
+      chk('Diámetro estático ' + c[0] + ': n(d) = 2,5', N.seguridadEstatica(N.estadoSuperficie(dd, 150000, 200000), 400)[c[1]], 2.5, 1e-6);
+    });
+    // Viga: apoyos en 0 y 1000 mm, carga central de 1000 N hacia abajo -> M = PL/4
+    var v = { geometria: [{ L: 1000, d: 30 }], apoyos: [0, 1000], cargas: [{ x: 500, Fy: -1000, Fz: 0, T: 0 }] };
+    chk('Viga: reacción A = P/2', N.reacciones(v).y[0], 500, 1e-9);
+    chk('Viga: M central = PL/4 [N·mm]', N.solicitacionEn(v, 500).My, 250000, 1e-9);
+    // Voladizo: apoyos 0 y 600, carga de 1000 N en 1000 -> M en B = -F·400
+    v = { geometria: [{ L: 1000, d: 30 }], apoyos: [0, 600], cargas: [{ x: 1000, Fy: -1000, Fz: 0, T: 0 }] };
+    chk('Voladizo: reacción B = 1000·1000/600', N.reacciones(v).y[1], 1000 * 1000 / 600, 1e-9);
+    chk('Voladizo: M en apoyo B = −400 000 N·mm', N.solicitacionEn(v, 600).My, -400000, 1e-9);
+    // Plano z y resultante: carga a 45° -> M resultante = √2 · componente
+    v = { geometria: [{ L: 1000, d: 30 }], apoyos: [0, 1000], cargas: [{ x: 500, Fy: -1000, Fz: -1000, T: 0 }] };
+    chk('Resultante de dos planos = √2·M_y', N.solicitacionEn(v, 500).M, Math.SQRT2 * 250000, 1e-9);
+    // Torque entre engranes: entra 150 N·m en x=50 y sale en x=210
+    var c = EJES.copiarCaso(EJES.EJEMPLOS.reductor);
+    chk('Torque entre engranes = 150 N·m', N.solicitacionEn(c, 120).T, 150000, 1e-9);
+    chk('Torque fuera de los engranes = 0', N.solicitacionEn(c, 20).T, 0);
+    chk('Diámetro en un hombro = el menor', N.diametroEn(c.geometria, 70), 35, 0);
+    // El ejemplo completo evalúa sin valores no finitos
+    var R = EJES.evaluar(c), finito = R.puntos.every(function (p) { return isFinite(p.nFat.goodman) && isFinite(p.nEst.vonMises) && p.dMinFatiga > 0; });
+    chk('Ejemplo del reductor: resultados finitos en los 6 puntos', finito ? 1 : 0, 1, 0);
+    chk('Ejemplo: ángulo de giro = ∫T/(JG) entre engranes', R.phi,
+        150000 * (20 / N.seccion(35).J + 120 / N.seccion(42).J + 20 / N.seccion(35).J) / 79300, 1e-3);
+    // Integridad de datos
+    var claves = Object.keys(EJES.FUENTES);
+    chk('Materiales con fuente válida', EJES.MATERIALES.every(function (m) { return claves.indexOf(m.fuente) >= 0 && m.Sy < m.Sut; }) ? 1 : 0, 1, 0);
+  } catch (err) { chk('Error: ' + err.message, 0, 1, 0); }
+  var res = document.getElementById('resumen');
+  res.textContent = mal === 0 ? 'Todas las pruebas pasan (' + ok + ')' : mal + ' fallan de ' + (ok + mal);
+  res.className = mal === 0 ? 'ok' : 'mal';
+})();
+</script>
+</body>
+</html>
